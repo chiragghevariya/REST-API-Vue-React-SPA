@@ -1,0 +1,186 @@
+import { defineStore } from 'pinia'
+import { useToast } from 'vue-toastification'
+import api from '../api/axios.js'
+
+export const useTaskStore = defineStore('tasks', {
+  state: () => ({
+    tasks: [],
+    pagination: {
+      current_page: 1,
+      last_page: 1,
+      per_page: 10,
+      total: 0,
+      from: null,
+      to: null,
+    },
+    loading: false,
+    filters: {
+      status: '',
+      category_id: '',
+      search: '',
+      page: 1,
+    },
+  }),
+
+  getters: {
+    totalByStatus: (state) => (status) =>
+      state.tasks.filter((t) => t.status === status).length,
+  },
+
+  actions: {
+    // -----------------------------------------------------------------
+    // Fetch (with filters)
+    // -----------------------------------------------------------------
+    async fetchTasks(overrides = {}) {
+      this.loading = true
+      const params = { ...this.filters, ...overrides }
+
+      // Strip empty values so they don't pollute the query string
+      Object.keys(params).forEach((k) => {
+        if (params[k] === '' || params[k] === null || params[k] === undefined) {
+          delete params[k]
+        }
+      })
+
+      try {
+        const response = await api.get('/api/tasks', { params })
+        this.tasks      = response.data.data
+        this.pagination = response.data.meta
+        return response.data
+      } catch (error) {
+        useToast().error('Failed to load tasks.')
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // -----------------------------------------------------------------
+    // Create
+    // -----------------------------------------------------------------
+    async createTask(data) {
+      const toast = useToast()
+      try {
+        const response = await api.post('/api/tasks', data)
+        const newTask = response.data.data
+        // Optimistic: prepend to current list if on page 1
+        if (this.filters.page === 1) {
+          this.tasks.unshift(newTask)
+          if (this.tasks.length > this.pagination.per_page) {
+            this.tasks.pop()
+          }
+        }
+        this.pagination.total += 1
+        toast.success('Task created successfully.')
+        return newTask
+      } catch (error) {
+        toast.error('Failed to create task.')
+        throw error
+      }
+    },
+
+    // -----------------------------------------------------------------
+    // Update
+    // -----------------------------------------------------------------
+    async updateTask(id, data) {
+      const toast = useToast()
+      const index = this.tasks.findIndex((t) => t.id === id)
+
+      // Optimistic update
+      const original = index !== -1 ? { ...this.tasks[index] } : null
+      if (index !== -1) {
+        this.tasks[index] = { ...this.tasks[index], ...data }
+      }
+
+      try {
+        const response = await api.put(`/api/tasks/${id}`, data)
+        if (index !== -1) {
+          this.tasks[index] = response.data.data
+        }
+        toast.success('Task updated successfully.')
+        return response.data.data
+      } catch (error) {
+        // Rollback
+        if (index !== -1 && original) {
+          this.tasks[index] = original
+        }
+        toast.error('Failed to update task.')
+        throw error
+      }
+    },
+
+    // -----------------------------------------------------------------
+    // Delete
+    // -----------------------------------------------------------------
+    async deleteTask(id) {
+      const toast = useToast()
+      const index = this.tasks.findIndex((t) => t.id === id)
+      const original = index !== -1 ? { ...this.tasks[index] } : null
+
+      // Optimistic remove
+      if (index !== -1) {
+        this.tasks.splice(index, 1)
+        this.pagination.total = Math.max(0, this.pagination.total - 1)
+      }
+
+      try {
+        await api.delete(`/api/tasks/${id}`)
+        toast.success('Task deleted.')
+      } catch (error) {
+        // Rollback
+        if (index !== -1 && original) {
+          this.tasks.splice(index, 0, original)
+          this.pagination.total += 1
+        }
+        toast.error('Failed to delete task.')
+        throw error
+      }
+    },
+
+    // -----------------------------------------------------------------
+    // Update status only (PATCH)
+    // -----------------------------------------------------------------
+    async updateStatus(id, status) {
+      const toast = useToast()
+      const index = this.tasks.findIndex((t) => t.id === id)
+      const originalStatus = index !== -1 ? this.tasks[index].status : null
+
+      // Optimistic
+      if (index !== -1) {
+        this.tasks[index].status = status
+      }
+
+      try {
+        const response = await api.patch(`/api/tasks/${id}/status`, { status })
+        if (index !== -1) {
+          this.tasks[index] = response.data.data
+        }
+        toast.success(`Task marked as ${status.replace('_', ' ')}.`)
+        return response.data.data
+      } catch (error) {
+        // Rollback
+        if (index !== -1 && originalStatus !== null) {
+          this.tasks[index].status = originalStatus
+        }
+        toast.error('Failed to update task status.')
+        throw error
+      }
+    },
+
+    // -----------------------------------------------------------------
+    // Filter helpers
+    // -----------------------------------------------------------------
+    setFilter(key, value) {
+      this.filters[key] = value
+      this.filters.page = 1
+    },
+
+    setPage(page) {
+      this.filters.page = page
+    },
+
+    resetFilters() {
+      this.filters = { status: '', category_id: '', search: '', page: 1 }
+    },
+  },
+})
