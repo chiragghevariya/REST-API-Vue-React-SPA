@@ -29,6 +29,45 @@ export const useTaskStore = defineStore('tasks', {
 
   actions: {
     // -----------------------------------------------------------------
+    // Pagination normalization
+    // -----------------------------------------------------------------
+    normalizePagination(meta = {}) {
+      const pickValue = (value, fallback = null) => {
+        if (Array.isArray(value)) {
+          for (let i = value.length - 1; i >= 0; i -= 1) {
+            const candidate = pickValue(value[i], fallback)
+            if (candidate !== null && candidate !== undefined && candidate !== '') {
+              return candidate
+            }
+          }
+          return fallback
+        }
+
+        return value ?? fallback
+      }
+
+      const toNumber = (value, fallback = 0) => {
+        const normalized = pickValue(value, fallback)
+        const parsed = Number(normalized)
+        return Number.isFinite(parsed) ? parsed : fallback
+      }
+
+      const total = toNumber(meta.total, this.tasks.length)
+      const perPage = Math.max(1, toNumber(meta.per_page, this.pagination.per_page || 10))
+      const currentPage = Math.max(1, toNumber(meta.current_page, this.filters.page || 1))
+      const lastPage = Math.max(1, toNumber(meta.last_page, Math.ceil(total / perPage) || 1))
+
+      return {
+        current_page: Math.min(currentPage, lastPage),
+        last_page: lastPage,
+        per_page: perPage,
+        total,
+        from: pickValue(meta.from, total > 0 ? ((currentPage - 1) * perPage) + 1 : null),
+        to: pickValue(meta.to, total > 0 ? Math.min(currentPage * perPage, total) : null),
+      }
+    },
+
+    // -----------------------------------------------------------------
     // Fetch (with filters)
     // -----------------------------------------------------------------
     async fetchTasks(overrides = {}) {
@@ -45,7 +84,7 @@ export const useTaskStore = defineStore('tasks', {
       try {
         const response = await api.get('/api/tasks', { params })
         this.tasks      = response.data.data
-        this.pagination = response.data.meta
+        this.pagination = this.normalizePagination(response.data.meta)
         return response.data
       } catch (error) {
         useToast().error('Failed to load tasks.')
