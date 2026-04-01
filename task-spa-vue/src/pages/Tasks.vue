@@ -62,6 +62,7 @@
           <option value="todo">To Do</option>
           <option value="in_progress">In Progress</option>
           <option value="done">Done</option>
+          <option value="overdue">Overdue</option>
         </select>
 
         <!-- Category filter (mobile — sidebar hidden) -->

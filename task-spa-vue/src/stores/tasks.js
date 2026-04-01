@@ -94,6 +94,47 @@ export const useTaskStore = defineStore('tasks', {
       }
     },
 
+    async fetchAllTasks(overrides = {}) {
+      this.loading = true
+      const baseParams = { ...this.filters, ...overrides, page: 1 }
+
+      Object.keys(baseParams).forEach((k) => {
+        if (baseParams[k] === '' || baseParams[k] === null || baseParams[k] === undefined) {
+          delete baseParams[k]
+        }
+      })
+
+      try {
+        const firstResponse = await api.get('/api/tasks', { params: baseParams })
+        const allTasks = [...firstResponse.data.data]
+        const meta = this.normalizePagination(firstResponse.data.meta)
+
+        for (let page = 2; page <= meta.last_page; page += 1) {
+          const response = await api.get('/api/tasks', {
+            params: { ...baseParams, page },
+          })
+          allTasks.push(...response.data.data)
+        }
+
+        this.tasks = allTasks
+        this.pagination = {
+          ...meta,
+          from: allTasks.length ? 1 : null,
+          to: allTasks.length || null,
+        }
+
+        return {
+          data: allTasks,
+          meta: this.pagination,
+        }
+      } catch (error) {
+        useToast().error('Failed to load tasks.')
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
     // -----------------------------------------------------------------
     // Create
     // -----------------------------------------------------------------

@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateTaskRequest;
 use App\Http\Resources\TaskCollection;
 use App\Http\Resources\TaskResource;
 use App\Models\Task;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
@@ -20,6 +21,7 @@ class TaskController extends Controller
      *   - status       (todo|in_progress|done)
      *   - category_id  (integer)
      *   - search       (string, matches title)
+     *   - overdue      (boolean-ish)
      *   - page         (integer)
      */
     public function index(Request $request)
@@ -28,7 +30,11 @@ class TaskController extends Controller
             ->with('category')
             ->latest();
 
-        if ($request->filled('status')) {
+        if ($request->status === 'overdue') {
+            $query
+                ->whereDate('due_date', '<', Carbon::today())
+                ->where('status', '!=', 'done');
+        }else if ($request->filled('status')) {
             $query->byStatus($request->status);
         }
 
@@ -39,7 +45,7 @@ class TaskController extends Controller
         if ($request->filled('search')) {
             $search = '%'.$request->search.'%';
             $query->where('title', 'like', $search);
-        }
+        }        
 
         $tasks = $query->paginate(10)->withQueryString();
 

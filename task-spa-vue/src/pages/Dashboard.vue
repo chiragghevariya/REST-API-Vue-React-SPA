@@ -51,13 +51,14 @@
               <p class="text-2xl font-bold text-red-600">{{ stats.overdue }}</p>
             </div>
           </div>
-          <RouterLink
+          <button
             v-if="stats.overdue > 0"
-            to="/tasks"
+            type="button"
+            @click="viewOverdueTasks"
             class="text-sm text-red-600 font-medium hover:underline"
           >
             View overdue tasks &rarr;
-          </RouterLink>
+          </button>
           <p v-else class="text-sm text-gray-400">No overdue tasks. Great work!</p>
         </div>
 
@@ -133,7 +134,7 @@
 
 <script setup>
 import { computed, onMounted } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import AppLayout from '../layouts/AppLayout.vue'
 import SkeletonCard from '../components/SkeletonCard.vue'
 import { useTaskStore } from '../stores/tasks.js'
@@ -163,6 +164,7 @@ const StatCard = defineComponent({
 })
 
 const taskStore = useTaskStore()
+const router = useRouter()
 
 const stats = computed(() => {
   const all = taskStore.tasks
@@ -200,7 +202,14 @@ function statusLabel(status) {
   return { todo: 'To Do', in_progress: 'In Progress', done: 'Done' }[status] ?? status
 }
 
+function viewOverdueTasks() {
+  taskStore.resetFilters()
+  taskStore.setFilter('status', 'overdue')
+  router.push({ name: 'tasks' })
+}
+
 onMounted(() => {
-  taskStore.fetchTasks()
+  taskStore.resetFilters()
+  taskStore.fetchAllTasks()
 })
 </script>
