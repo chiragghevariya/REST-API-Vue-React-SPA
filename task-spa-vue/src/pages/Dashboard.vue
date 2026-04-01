@@ -151,8 +151,8 @@ const StatCard = defineComponent({
     }
     return () =>
       h('div', { class: 'bg-white rounded-xl border border-gray-200 p-5 flex items-center gap-4' }, [
-        h('div', { class: `w-12 h-12 rounded-xl flex items-center justify-center ${colorMap[props.color] || colorMap.blue}` }, [
-          h('span', { class: 'text-2xl font-bold' }, props.value),
+        h('div', { class: `min-w-[3rem] h-12 px-3 rounded-xl flex items-center justify-center ${colorMap[props.color] || colorMap.blue}` }, [
+          h('span', { class: 'text-xl font-bold tabular-nums leading-none' }, props.value),
         ]),
         h('div', [
           h('p', { class: 'text-sm text-gray-500' }, props.label),
@@ -176,9 +176,14 @@ const stats = computed(() => {
 })
 
 const completionRate = computed(() => {
-  const total = stats.value.total
-  if (!total) return 0
-  return Math.round((stats.value.done / total) * 100)
+  const total = Number(stats.value.total)
+  const done = Number(stats.value.done)
+
+  if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(done)) {
+    return 0
+  }
+
+  return Math.round((done / total) * 100)
 })
 
 const recentTasks = computed(() => taskStore.tasks.slice(0, 5))
