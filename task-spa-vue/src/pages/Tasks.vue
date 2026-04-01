@@ -4,6 +4,7 @@
     :active-category="taskStore.filters.category_id"
     :show-sidebar="true"
     @filter-category="handleCategoryFilter"
+    @edit-category="openEditCategory"
   >
     <div>
       <!-- ----------------------------------------------------------------
@@ -16,13 +17,20 @@
             {{ taskStore.pagination.total }} task{{ taskStore.pagination.total !== 1 ? 's' : '' }}
           </p>
         </div>
-        <!-- Add Task button (desktop) -->
-        <button @click="openCreate" class="btn-primary hidden sm:flex gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          New Task
-        </button>
+        <div class="hidden sm:flex items-center gap-3">
+          <button @click="openCategoryForm" class="btn-secondary gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2m4-4h-8m4-4v8" />
+            </svg>
+            New Category
+          </button>
+          <button @click="openCreate" class="btn-primary gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            New Task
+          </button>
+        </div>
       </div>
 
       <!-- ----------------------------------------------------------------
@@ -75,6 +83,21 @@
           class="btn-secondary text-sm"
         >
           Clear filters
+        </button>
+
+        <button
+          @click="openCategoryForm"
+          class="btn-secondary text-sm sm:hidden"
+        >
+          New Category
+        </button>
+
+        <button
+          v-if="selectedCategory"
+          @click="openEditCategory(selectedCategory)"
+          class="btn-secondary text-sm lg:hidden"
+        >
+          Edit Category
         </button>
       </div>
 
@@ -153,12 +176,20 @@
       @saved="onFormSaved"
       @close="closeForm"
     />
+
+    <CategoryForm
+      v-if="showCategoryForm"
+      :category="editingCategory"
+      @saved="onCategorySaved"
+      @close="closeCategoryForm"
+    />
   </AppLayout>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import AppLayout from '../layouts/AppLayout.vue'
+import CategoryForm from '../components/CategoryForm.vue'
 import TaskCard from '../components/TaskCard.vue'
 import TaskForm from '../components/TaskForm.vue'
 import Pagination from '../components/Pagination.vue'
@@ -170,6 +201,7 @@ const taskStore = useTaskStore()
 
 // ---- Categories ----
 const categories = ref([])
+const editingCategory = ref(null)
 
 async function loadCategories() {
   try {
@@ -209,6 +241,10 @@ const hasActiveFilters = computed(
   () => !!searchInput.value || !!statusFilter.value || !!categoryFilter.value
 )
 
+const selectedCategory = computed(() =>
+  categories.value.find((cat) => String(cat.id) === String(categoryFilter.value)) ?? null
+)
+
 function clearFilters() {
   searchInput.value    = ''
   statusFilter.value   = ''
@@ -226,10 +262,22 @@ function handlePageChange(page) {
 // ---- Modal ----
 const showForm    = ref(false)
 const editingTask = ref(null)
+const showCategoryForm = ref(false)
 
 function openCreate() {
   editingTask.value = null
   showForm.value = true
+}
+
+function openCategoryForm() {
+  editingCategory.value = null
+  showCategoryForm.value = true
+}
+
+function openEditCategory(category) {
+  if (!category) return
+  editingCategory.value = { ...category }
+  showCategoryForm.value = true
 }
 
 function openEdit(task) {
@@ -242,10 +290,32 @@ function closeForm() {
   editingTask.value = null
 }
 
+function closeCategoryForm() {
+  showCategoryForm.value = false
+  editingCategory.value = null
+}
+
 async function onFormSaved() {
   closeForm()
   await taskStore.fetchTasks()
   await loadCategories()
+}
+
+async function onCategorySaved(category) {
+  const wasEditing = !!editingCategory.value
+  closeCategoryForm()
+  await loadCategories()
+
+  if (category?.id && !wasEditing) {
+    categoryFilter.value = category.id
+    taskStore.setFilter('category_id', category.id)
+    await taskStore.fetchTasks()
+    return
+  }
+
+  if (selectedCategory.value) {
+    await taskStore.fetchTasks()
+  }
 }
 
 async function onTaskDeleted() {

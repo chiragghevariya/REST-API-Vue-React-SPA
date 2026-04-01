@@ -82,17 +82,31 @@
               <span class="w-2 h-2 rounded-full bg-gray-400"></span>
               All Tasks
             </button>
-            <button
+            <div
               v-for="cat in categories"
               :key="cat.id"
-              @click="$emit('filter-category', cat.id)"
-              class="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors"
-              :class="activeCategory === cat.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-50'"
+              class="group flex items-center gap-1"
             >
-              <span class="w-2 h-2 rounded-full flex-shrink-0" :style="{ backgroundColor: cat.color }"></span>
-              <span class="truncate">{{ cat.name }}</span>
-              <span class="ml-auto text-xs text-gray-400">{{ cat.tasks_count }}</span>
-            </button>
+              <button
+                @click="$emit('filter-category', cat.id)"
+                class="flex flex-1 items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors"
+                :class="activeCategory === cat.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-50'"
+              >
+                <span class="w-2 h-2 rounded-full flex-shrink-0" :style="{ backgroundColor: cat.color }"></span>
+                <span class="truncate">{{ cat.name }}</span>
+                <span class="ml-auto text-xs text-gray-400">{{ cat.tasks_count }}</span>
+              </button>
+              <button
+                @click.stop="$emit('edit-category', cat)"
+                class="flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                :aria-label="`Edit ${cat.name}`"
+                title="Edit category"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+            </div>
           </nav>
         </div>
       </aside>
@@ -125,7 +139,7 @@ const props = defineProps({
   },
 })
 
-defineEmits(['filter-category'])
+defineEmits(['filter-category', 'edit-category'])
 
 const authStore = useAuthStore()
 const router = useRouter()
